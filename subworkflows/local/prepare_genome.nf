@@ -14,6 +14,7 @@ include { UNTAR as UNTAR_STAR_INDEX         } from '../../modules/nf-core/untar/
 include { UNTAR as UNTAR_RSEM_INDEX         } from '../../modules/nf-core/untar/main'
 include { UNTAR as UNTAR_HISAT2_INDEX       } from '../../modules/nf-core/untar/main'
 include { UNTAR as UNTAR_SALMON_INDEX       } from '../../modules/nf-core/untar/main'
+include { UNTAR as UNTAR_BWA_INDEX          } from '../../modules/nf-core/untar/main'
 
 include { CUSTOM_GETCHROMSIZES              } from '../../modules/nf-core/custom/getchromsizes/main'
 include { GFFREAD                           } from '../../modules/nf-core/gffread/main'
@@ -30,6 +31,7 @@ include { GTF2BED                              } from '../../modules/local/gtf2b
 include { CAT_ADDITIONAL_FASTA                 } from '../../modules/local/cat_additional_fasta'
 include { GTF_GENE_FILTER                      } from '../../modules/local/gtf_gene_filter'
 include { STAR_GENOMEGENERATE_IGENOMES         } from '../../modules/local/star_genomegenerate_igenomes'
+include { BWA_INDEX                            } from '../../modules/local/bwa_index'
 
 workflow PREPARE_GENOME {
     take:
@@ -45,11 +47,14 @@ workflow PREPARE_GENOME {
     rsem_index           // directory: /path/to/rsem/index/
     salmon_index         // directory: /path/to/salmon/index/
     hisat2_index         // directory: /path/to/hisat2/index/ 
-    bbsplit_index        // directory: /path/to/rsem/index/
+    bbsplit_index        // directory: /path/to/bbsplit/index/
     gencode              //   boolean: whether the genome is from GENCODE
     is_aws_igenome       //   boolean: whether the genome files are from AWS iGenomes
     biotype              //    string: if additional fasta file is provided biotype value to use when appending entries to GTF file
     prepare_tool_indices //      list: tools to prepare indices for
+    bwa_index            // directory: /path/to/bwa/index/
+    skip_l1em            //   boolean: Whether to skip L1EM step
+    l1em_bed             //      file: /path/to/l1em.bed
 
     main:
 
@@ -258,6 +263,24 @@ workflow PREPARE_GENOME {
         }
     }
 
+    //
+    // Uncompress BWA index or generate from scratch if required
+    //
+    ch_bwa_index = Channel.empty()
+    if (!skip_l1em) {
+        if (bwa_index) {
+            if (bwa_index.endsWith('.tar.gz')) {
+                ch_bwa_index = UNTAR_BWA_INDEX ( [ [:], bwa_index ] ).untar.map{ it[1] }
+                ch_versions  = ch_versions.mix(UNTAR_BWA_INDEX.out.versions)
+            } else {
+                ch_bwa_index = file(bwa_index)
+            }
+        } else {
+            ch_bwa_index = BWA_INDEX ( ch_fasta.map { [ [:], it ] }, l1em_bed ).index.map{ it[1] }
+            ch_versions  = ch_versions.mix(BWA_INDEX.out.versions)
+        }
+    }
+
     emit:
     fasta            = ch_fasta                  // channel: path(genome.fasta)
     gtf              = ch_gtf                    // channel: path(genome.gtf)
@@ -271,6 +294,7 @@ workflow PREPARE_GENOME {
     rsem_index       = ch_rsem_index             // channel: path(rsem/index/)
     hisat2_index     = ch_hisat2_index           // channel: path(hisat2/index/)
     salmon_index     = ch_salmon_index           // channel: path(salmon/index/)
+    bwa_index        = ch_bwa_index              // channel: path(bwa/index/)
 
     versions         = ch_versions.ifEmpty(null) // channel: [ versions.yml ]
 }

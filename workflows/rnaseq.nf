@@ -22,7 +22,8 @@ checkPathParamList = [
     params.fasta, params.transcript_fasta, params.additional_fasta,
     params.gtf, params.gff, params.gene_bed,
     params.ribo_database_manifest, params.splicesites,
-    params.star_index, params.hisat2_index, params.rsem_index, params.salmon_index
+    params.star_index, params.hisat2_index, params.rsem_index, params.salmon_index,
+    params.bwa_index, params.l1em_bed
 ]
 for (param in checkPathParamList) { if (param) { file(param, checkIfExists: true) } }
 
@@ -67,6 +68,8 @@ if (params.fasta && params.gtf) {
         is_aws_igenome = true
     }
 }
+
+if (!params.skip_l1em && !params.l1em_bed) { exit 1, 'Please provide a L1EM BED file!' }
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -184,7 +187,10 @@ workflow RNASEQ {
         params.gencode,
         is_aws_igenome,
         biotype,
-        prepareToolIndices
+        prepareToolIndices,
+        params.bwa_index,
+        params.skip_l1em,
+        params.l1em_bed
     )
     ch_versions = ch_versions.mix(PREPARE_GENOME.out.versions)
 
@@ -412,15 +418,19 @@ workflow RNASEQ {
         //
         // MODULE: Run L1EM to detect Line elements
         //
-        ch_genome_bam
-            .join(ch_genome_bam_index)
-            .filter { meta, bam, bai -> !meta.single_end }
-            .set { ch_paired_end_bam_bai }
+        if (!params.skip_l1em) {
+            ch_genome_bam
+                .join(ch_genome_bam_index)
+                .filter { meta, bam, bai -> !meta.single_end }
+                .set { ch_paired_end_bam_bai }
 
-        L1EM (
-            ch_paired_end_bam_bai,
-            PREPARE_GENOME.out.fasta
-        )
+            L1EM (
+                ch_paired_end_bam_bai,
+                PREPARE_GENOME.out.fasta,
+                PREPARE_GENOME.out.bwa_index,
+                params.l1em_bed
+            )
+        }
 
         //
         // SUBWORKFLOW: Remove duplicate reads from BAM file based on UMIs

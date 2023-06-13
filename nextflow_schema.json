@@ -257,6 +257,18 @@
                     "fa_icon": "fas fa-bezier-curve",
                     "description": "Path to directory or tar.gz archive for pre-built Salmon index."
                 },
+                "bwa_index": {
+                    "type": "string",
+                    "format": "path",
+                    "fa_icon": "fas fa-bezier-curve",
+                    "description": "Path to directory or tar.gz archive for pre-built BWA index."
+                },
+                "l1em_bed": {
+                    "type": "string",
+                    "format": "path",
+                    "fa_icon": "fas fa-bezier-curve",
+                    "description": "Path to interval L1EM BED file required to create BWA index. e.g. https://github.com/FenyoLab/L1EM/blob/master/annotation/L1EM.400.bed"
+                },
                 "hisat2_build_memory": {
                     "type": "string",
                     "default": "200.GB",
@@ -493,6 +505,11 @@
                     "type": "boolean",
                     "fa_icon": "fas fa-fast-forward",
                     "description": "Skip dupRadar."
+                },
+                "skip_l1em": {
+                    "type": "boolean",
+                    "fa_icon": "fas fa-fast-forward",
+                    "description": "Skip L1EM."
                 },
                 "skip_qualimap": {
                     "type": "boolean",
